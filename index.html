@@ -96,7 +96,7 @@
             </form>
         </div>
     </div>
-        <!-- Notification system -->
+    <!-- Notification system -->
     <div id="notification" class="fixed top-4 right-4 max-w-xs bg-white dark:bg-gray-800 border-l-4 border-primary shadow-md rounded-md p-4 transform transition-transform duration-300 translate-x-full z-50">
         <div class="flex items-start">
             <div class="ml-3 w-0 flex-1">
@@ -143,7 +143,7 @@
                 <button id="tab-cards" class="tab-btn px-4 py-2 border-b-2 border-transparent font-medium text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary">Cartões</button>
             </div>
         </div>
-                <!-- Content containers -->
+        <!-- Content containers -->
         <div id="id-input-container" class="tab-content">
             <div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 mb-4">
                 <h2 class="text-xl font-semibold mb-2">Verificar Jogador</h2>
@@ -189,7 +189,7 @@
                 </div>
             </div>
         </div>
-                <div id="register-container" class="tab-content hidden">
+        <div id="register-container" class="tab-content hidden">
             <div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-4">
                 <h2 class="text-xl font-semibold mb-4">Cadastro de Jogador</h2>
                 <form id="register-form" class="space-y-4">
@@ -251,7 +251,7 @@
                 </div>
             </div>
         </div>
-                <div id="cards-container" class="tab-content hidden">
+        <div id="cards-container" class="tab-content hidden">
             <div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-4">
                 <h2 class="text-xl font-semibold mb-4">Registrar Cartão</h2>
                 <form id="card-form" class="space-y-4">
@@ -311,7 +311,7 @@
             </div>
         </div>
     </div>
-        <script>
+    <script>
         // Detecção de plataforma
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
         const isAndroid = /Android/.test(navigator.userAgent);
@@ -328,7 +328,8 @@
         // Predefined users (will be stored in Firebase)
         const users = [
             { username: "admin", password: "admin123", isAdmin: true, isReferee: false },
-            { username: "mesario", password: "123456", isAdmin: false, isReferee: false },
+            { username: "mesario1", password: "mesario123", isAdmin: false, isReferee: false },
+            { username: "mesario2", password: "mesario123", isAdmin: false, isReferee: false },
             { username: "juiz", password: "juiz123", isAdmin: false, isReferee: true }
         ];
         
@@ -384,7 +385,7 @@
         const syncIndicator = document.getElementById('sync-indicator');
         const syncStatus = document.getElementById('sync-status');
         const syncText = document.getElementById('sync-text');
-                  // Initialize database from Firebase
+        // Initialize database from Firebase
         function initializeDB() {
             // Initialize players DB
             const playersRef = firebase.database().ref('players');
@@ -476,6 +477,23 @@
                         firebase.database().ref('users').update(updates)
                             .then(() => console.log('Usuários iniciais salvos no Firebase'))
                             .catch(error => console.error('Erro ao salvar usuários iniciais:', error));
+                    } else {
+                        // Verificar se o usuário juiz existe e, se não, adicioná-lo
+                        firebase.database().ref('users/juiz').once('value')
+                            .then((juizSnapshot) => {
+                                if (!juizSnapshot.exists()) {
+                                    console.log('Adicionando usuário juiz ao Firebase');
+                                    
+                                    firebase.database().ref('users/juiz').set({
+                                        username: "juiz",
+                                        password: "juiz123",
+                                        isAdmin: false,
+                                        isReferee: true
+                                    })
+                                    .then(() => console.log('Usuário juiz adicionado com sucesso'))
+                                    .catch(error => console.error('Erro ao adicionar usuário juiz:', error));
+                                }
+                            });
                     }
                 })
                 .catch(error => {
@@ -642,7 +660,7 @@
                 }
             }
         }
-                  // Process QR code from selected image
+        // Process QR code from selected image
         function processQRCodeFromImage(file) {
             if (file) {
                 const reader = new FileReader();
@@ -683,7 +701,7 @@
                 reader.readAsDataURL(file);
             }
         }
-                  // Show notification
+        // Show notification
         function showNotification(message, duration = 3000) {
             notificationMessage.textContent = message;
             notification.classList.remove('translate-x-full');
@@ -739,7 +757,7 @@
                 loadRecentCards();
             }
         }
-                  // Check player by ID
+        // Check player by ID
         function checkPlayer() {
             const id = playerIdInput.value.trim();
             
@@ -920,7 +938,7 @@
                     playerCardsDiv.innerHTML = '<p class="text-sm text-red-500">Erro ao carregar cartões.</p>';
                 });
         }
-                  // Register a new player with Firebase
+        // Register a new player with Firebase
         function registerPlayer(event) {
             event.preventDefault();
             
@@ -1153,7 +1171,7 @@
                     });
             }
         }
-                  // Inicializar funcionalidade de cartões
+        // Inicializar funcionalidade de cartões
         function initializeCardsFunctionality() {
             // Pesquisa de jogadores enquanto digita
             playerSearch.addEventListener('input', function() {
@@ -1345,7 +1363,7 @@
                     recentCardsDiv.innerHTML = '<p class="text-red-500">Erro ao carregar cartões. Tente novamente mais tarde.</p>';
                 });
         }
-                  // Initialize app
+        // Initialize app
         function init() {
             initializeDB();
             initializeFirebaseAuth();
