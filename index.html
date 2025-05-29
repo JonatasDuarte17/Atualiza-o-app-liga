@@ -1,0 +1,1434 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Registro de Jogadores</title>
+    
+    <!-- PWA e iOS Meta Tags -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="Registro Jogadores">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <meta name="theme-color" content="#5D5CDE">
+    
+    <!-- Firebase SDK (versão de compatibilidade) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    
+    <!-- QR Code Scanner -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D5CDE',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Configuração do Firebase -->
+    <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDq-L2doBOPRULBPcoBz6fSHvnPxxLnH4E",
+      authDomain: "registro-de-jogadores.firebaseapp.com",
+      databaseURL: "https://registro-de-jogadores-default-rtdb.firebaseio.com",
+      projectId: "registro-de-jogadores",
+      storageBucket: "registro-de-jogadores.firebasestorage.app",
+      messagingSenderId: "86121414534",
+      appId: "1:86121414534:web:c1d838067e44ec905d3607",
+      measurementId: "G-3Z698CFG29"
+    };
+
+    // Inicializar Firebase
+    firebase.initializeApp(firebaseConfig);
+    </script>
+</head>
+<body class="bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 min-h-screen">
+    <!-- Dark mode detection -->
+    <script>
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+    </script>
+
+    <!-- Login Screen -->
+    <div id="login-screen" class="fixed inset-0 bg-white dark:bg-gray-900 z-50 flex items-center justify-center p-4">
+        <div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-6 w-full max-w-md shadow-lg">
+            <h2 class="text-2xl font-bold text-center text-primary mb-6">Sistema de Registro de Jogadores</h2>
+            
+            <div id="login-error" class="mb-4 bg-red-100 text-red-800 p-3 rounded hidden">
+                Usuário ou senha incorretos. Tente novamente.
+            </div>
+            
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label for="username" class="block text-sm font-medium mb-1">Usuário</label>
+                    <input type="text" id="username" class="w-full rounded-md border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-base px-3 py-2" required>
+                </div>
+                
+                <div>
+                    <label for="password" class="block text-sm font-medium mb-1">Senha</label>
+                    <input type="password" id="password" class="w-full rounded-md border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-base px-3 py-2" required>
+                </div>
+                
+                <div class="pt-2">
+                    <button type="submit" class="w-full bg-primary hover:bg-opacity-90 text-white font-bold py-2 px-4 rounded">
+                        Entrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+        <!-- Notification system -->
+    <div id="notification" class="fixed top-4 right-4 max-w-xs bg-white dark:bg-gray-800 border-l-4 border-primary shadow-md rounded-md p-4 transform transition-transform duration-300 translate-x-full z-50">
+        <div class="flex items-start">
+            <div class="ml-3 w-0 flex-1">
+                <p id="notification-message" class="text-sm font-medium text-gray-900 dark:text-gray-100"></p>
+            </div>
+            <div class="ml-4 flex-shrink-0 flex">
+                <button id="close-notification" class="inline-flex text-gray-400 hover:text-gray-500 focus:outline-none">
+                    <span class="sr-only">Fechar</span>
+                    <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sync indicator -->
+    <div id="sync-indicator" class="fixed bottom-4 right-4 bg-white dark:bg-gray-800 shadow-md rounded-full p-2 flex items-center space-x-2 text-sm z-50 opacity-0 transition-opacity duration-300">
+        <div class="w-3 h-3 rounded-full bg-yellow-400" id="sync-status"></div>
+        <span id="sync-text">Sincronizando...</span>
+    </div>
+
+    <div class="container mx-auto px-4 py-6 max-w-3xl">
+        <!-- User header -->
+        <div class="flex justify-between items-center mb-4">
+            <div class="user-info text-sm">
+                Logado como: <span id="current-user" class="font-semibold"></span>
+                <span id="admin-badge" class="ml-2 bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 px-2 py-0.5 rounded-full text-xs hidden">Admin</span>
+                <span id="referee-badge" class="ml-2 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 px-2 py-0.5 rounded-full text-xs hidden">Juiz</span>
+            </div>
+            <button id="logout-button" class="text-sm text-gray-600 dark:text-gray-400 hover:text-primary">
+                Sair
+            </button>
+        </div>
+        
+        <h1 class="text-3xl font-bold text-center text-primary mb-6">Sistema de Registro de Jogadores</h1>
+        
+        <!-- Tabs -->
+        <div class="mb-6">
+            <div class="flex border-b border-gray-300 dark:border-gray-700">
+                <button id="tab-id-input" class="tab-btn px-4 py-2 border-b-2 border-primary font-medium text-primary">Entrada de ID</button>
+                <button id="tab-register" class="tab-btn px-4 py-2 border-b-2 border-transparent font-medium text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary">Cadastro</button>
+                <button id="tab-search" class="tab-btn px-4 py-2 border-b-2 border-transparent font-medium text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary">Pesquisa</button>
+                <button id="tab-cards" class="tab-btn px-4 py-2 border-b-2 border-transparent font-medium text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary">Cartões</button>
+            </div>
+        </div>
+                <!-- Content containers -->
+        <div id="id-input-container" class="tab-content">
+            <div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 mb-4">
+                <h2 class="text-xl font-semibold mb-2">Verificar Jogador</h2>
+                <p class="mb-4">Selecione uma imagem com QR Code ou digite o ID do jogador para verificar seu status.</p>
+                
+                <div class="flex flex-col items-center">
+                    <!-- Botão para upload de imagem com QR code -->
+                    <div class="mb-4 w-full max-w-md">
+                        <label for="qrImageInput" class="bg-primary hover:bg-opacity-90 text-white font-bold py-2 px-4 rounded text-center cursor-pointer block mb-4">
+                            Selecionar Imagem de QR Code
+                        </label>
+                        <input type="file" id="qrImageInput" accept="image/*" class="hidden">
+                    </div>
+                    
+                    <!-- Campo de entrada manual -->
+                    <div class="w-full max-w-md mb-4">
+                        <p class="text-center text-sm mb-2">Ou digite o ID manualmente:</p>
+                        <div class="flex space-x-2">
+                            <input type="text" id="playerIdInput" class="w-full rounded-md border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-base px-3 py-2" placeholder="Digite o ID do jogador">
+                            <button id="checkPlayerButton" class="bg-primary hover:bg-opacity-90 text-white px-3 py-2 rounded whitespace-nowrap">
+                                Verificar
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="w-full max-w-md">
+                        <div class="bg-white dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600 mb-4">
+                            <h3 class="font-medium text-lg mb-2">IDs de exemplo</h3>
+                            <p class="text-sm mb-1">Para teste, você pode usar os seguintes IDs:</p>
+                            <ul class="list-disc list-inside text-sm">
+                                <li>123456 - João Silva (Liberado)</li>
+                                <li>789012 - Maria Oliveira (Bloqueado)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="player-info-display" class="mt-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow hidden">
+                <h3 class="text-lg font-semibold border-b pb-2 mb-2 border-gray-200 dark:border-gray-700">Informações do Jogador</h3>
+                <div id="player-info" class="space-y-2">
+                    <!-- Player information will be displayed here -->
+                </div>
+            </div>
+        </div>
+                <div id="register-container" class="tab-content hidden">
+            <div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-4">
+                <h2 class="text-xl font-semibold mb-4">Cadastro de Jogador</h2>
+                <form id="register-form" class="space-y-4">
+                    <div>
+                        <label for="playerId" class="block text-sm font-medium mb-1">ID do Jogador</label>
+                        <input type="text" id="playerId" class="w-full rounded-md border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-base px-3 py-2" placeholder="Digite o ID do jogador" required>
+                    </div>
+                    
+                    <div>
+                        <label for="playerName" class="block text-sm font-medium mb-1">Nome do Jogador</label>
+                        <input type="text" id="playerName" class="w-full rounded-md border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-base px-3 py-2" required>
+                    </div>
+                    
+                    <div>
+                        <label for="playerAge" class="block text-sm font-medium mb-1">Idade</label>
+                        <input type="number" id="playerAge" min="1" max="120" class="w-full rounded-md border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-base px-3 py-2" required>
+                    </div>
+                    
+                    <div>
+                        <label for="playerTeam" class="block text-sm font-medium mb-1">Time</label>
+                        <input type="text" id="playerTeam" class="w-full rounded-md border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-base px-3 py-2" required>
+                    </div>
+                    
+                    <div>
+                        <label for="playerStatus" class="block text-sm font-medium mb-1">Status</label>
+                        <select id="playerStatus" class="w-full rounded-md border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-base px-3 py-2" required>
+                            <option value="liberado">Liberado para jogar</option>
+                            <option value="bloqueado">Não liberado para jogar</option>
+                        </select>
+                    </div>
+                    
+                    <div class="pt-2">
+                        <button type="submit" class="w-full bg-primary hover:bg-opacity-90 text-white font-bold py-2 px-4 rounded">
+                            Cadastrar Jogador
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div id="search-container" class="tab-content hidden">
+            <div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-4">
+                <h2 class="text-xl font-semibold mb-4">Pesquisar Jogador</h2>
+                <div class="mb-4">
+                    <label for="searchTerm" class="block text-sm font-medium mb-1">Buscar por nome</label>
+                    <div class="flex space-x-2">
+                        <input type="text" id="searchTerm" class="w-full rounded-md border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-base px-3 py-2" placeholder="Digite o nome do jogador">
+                        <button id="searchButton" class="bg-primary hover:bg-opacity-90 text-white px-3 py-2 rounded">
+                            Buscar
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="search-results" class="mt-4">
+                    <h3 class="text-lg font-semibold mb-2 hidden" id="results-heading">Resultados da Busca</h3>
+                    <div id="players-list" class="space-y-2">
+                        <!-- Search results will be displayed here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+                <div id="cards-container" class="tab-content hidden">
+            <div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-4">
+                <h2 class="text-xl font-semibold mb-4">Registrar Cartão</h2>
+                <form id="card-form" class="space-y-4">
+                    <div>
+                        <label for="matchInfo" class="block text-sm font-medium mb-1">Partida</label>
+                        <input type="text" id="matchInfo" class="w-full rounded-md border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-base px-3 py-2" placeholder="Ex: Time A x Time B" required>
+                    </div>
+                    
+                    <div>
+                        <label for="playerSelection" class="block text-sm font-medium mb-1">Jogador</label>
+                        <div class="relative">
+                            <input type="text" id="playerSearch" class="w-full rounded-md border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-base px-3 py-2" placeholder="Digite o nome do jogador" required>
+                            <div id="playerSearchResults" class="absolute z-10 mt-1 w-full bg-white dark:bg-gray-700 shadow-lg rounded-md max-h-60 overflow-auto hidden"></div>
+                        </div>
+                        <input type="hidden" id="selectedPlayerId" required>
+                    </div>
+                    
+                    <div>
+                        <label for="teamName" class="block text-sm font-medium mb-1">Time</label>
+                        <input type="text" id="teamName" class="w-full rounded-md border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-base px-3 py-2" required>
+                    </div>
+                    
+                    <div>
+                        <label for="cardType" class="block text-sm font-medium mb-1">Tipo de Cartão</label>
+                        <select id="cardType" class="w-full rounded-md border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-base px-3 py-2" required>
+                            <option value="amarelo">Cartão Amarelo</option>
+                            <option value="vermelho">Cartão Vermelho</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label for="cardReason" class="block text-sm font-medium mb-1">Motivo (opcional)</label>
+                        <input type="text" id="cardReason" class="w-full rounded-md border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-base px-3 py-2" placeholder="Ex: Falta dura, reclamação, etc.">
+                    </div>
+                    
+                    <div class="pt-2">
+                        <button type="submit" class="w-full bg-primary hover:bg-opacity-90 text-white font-bold py-2 px-4 rounded">
+                            Registrar Cartão
+                        </button>
+                    </div>
+                </form>
+                
+                <div id="card-warning" class="mt-4 bg-yellow-100 dark:bg-yellow-900 p-4 rounded-lg border border-yellow-300 dark:border-yellow-800 hidden">
+                    <p class="font-medium text-yellow-800 dark:text-yellow-200">Atenção! Este jogador já possui <span id="yellowCardCount">0</span> cartões amarelos.</p>
+                </div>
+                
+                <div id="card-alert" class="mt-4 bg-red-100 dark:bg-red-900 p-4 rounded-lg border border-red-300 dark:border-red-800 hidden">
+                    <p class="font-medium text-red-800 dark:text-red-200">⚠️ Este jogador está suspenso por acúmulo de 3 cartões amarelos!</p>
+                </div>
+            </div>
+            
+            <div class="mt-6">
+                <h3 class="text-lg font-semibold mb-3">Últimos Cartões Registrados</h3>
+                <div id="recent-cards" class="space-y-2">
+                    <!-- Recent cards will be displayed here -->
+                </div>
+            </div>
+        </div>
+    </div>
+        <script>
+        // Detecção de plataforma
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const isAndroid = /Android/.test(navigator.userAgent);
+        
+        // In-memory database
+        let playersDB = [];
+        let cardsDB = [];
+        
+        // User management
+        let currentUser = null;
+        let isAdmin = false;
+        let isReferee = false;
+        
+        // Predefined users (will be stored in Firebase)
+        const users = [
+            { username: "admin", password: "admin123", isAdmin: true, isReferee: false },
+            { username: "mesario", password: "123456", isAdmin: false, isReferee: false },
+            { username: "juiz", password: "juiz123", isAdmin: false, isReferee: true }
+        ];
+        
+        // DOM elements
+        const playerInfoDisplay = document.getElementById('player-info-display');
+        const playerInfo = document.getElementById('player-info');
+        const registerForm = document.getElementById('register-form');
+        const searchButton = document.getElementById('searchButton');
+        const searchTerm = document.getElementById('searchTerm');
+        const playersListDiv = document.getElementById('players-list');
+        const resultsHeading = document.getElementById('results-heading');
+        const playerIdInput = document.getElementById('playerIdInput');
+        const checkPlayerButton = document.getElementById('checkPlayerButton');
+        const notification = document.getElementById('notification');
+        const notificationMessage = document.getElementById('notification-message');
+        const closeNotification = document.getElementById('close-notification');
+        const qrImageInput = document.getElementById('qrImageInput');
+        
+        // Login screen elements
+        const loginScreen = document.getElementById('login-screen');
+        const loginForm = document.getElementById('login-form');
+        const loginError = document.getElementById('login-error');
+        const currentUserSpan = document.getElementById('current-user');
+        const adminBadge = document.getElementById('admin-badge');
+        const refereeBadge = document.getElementById('referee-badge');
+        const logoutButton = document.getElementById('logout-button');
+        
+        // Tab elements
+        const tabIdInput = document.getElementById('tab-id-input');
+        const tabRegister = document.getElementById('tab-register');
+        const tabSearch = document.getElementById('tab-search');
+        const tabCards = document.getElementById('tab-cards');
+        const idInputContainer = document.getElementById('id-input-container');
+        const registerContainer = document.getElementById('register-container');
+        const searchContainer = document.getElementById('search-container');
+        const cardsContainer = document.getElementById('cards-container');
+        
+        // Cards elements
+        const cardForm = document.getElementById('card-form');
+        const playerSearch = document.getElementById('playerSearch');
+        const playerSearchResults = document.getElementById('playerSearchResults');
+        const selectedPlayerId = document.getElementById('selectedPlayerId');
+        const teamNameInput = document.getElementById('teamName');
+        const matchInfoInput = document.getElementById('matchInfo');
+        const cardTypeSelect = document.getElementById('cardType');
+        const cardReasonInput = document.getElementById('cardReason');
+        const cardWarning = document.getElementById('card-warning');
+        const cardAlert = document.getElementById('card-alert');
+        const yellowCardCount = document.getElementById('yellowCardCount');
+        const recentCardsDiv = document.getElementById('recent-cards');
+        
+        // Sync indicator elements
+        const syncIndicator = document.getElementById('sync-indicator');
+        const syncStatus = document.getElementById('sync-status');
+        const syncText = document.getElementById('sync-text');
+                  // Initialize database from Firebase
+        function initializeDB() {
+            // Initialize players DB
+            const playersRef = firebase.database().ref('players');
+            
+            // Check if players data exists first time
+            playersRef.once('value')
+                .then((snapshot) => {
+                    if (!snapshot.exists()) {
+                        console.log('Inicializando banco de dados de jogadores no Firebase');
+                        
+                        // Add sample data
+                        const initialData = [
+                            { id: '123456', name: 'João Silva', age: 25, team: 'Leões FC', status: 'liberado' },
+                            { id: '789012', name: 'Maria Oliveira', age: 22, team: 'Tigres FC', status: 'bloqueado' }
+                        ];
+                        
+                        // Save initial data to Firebase
+                        const updates = {};
+                        initialData.forEach(player => {
+                            updates[player.id] = player;
+                        });
+                        
+                        playersRef.update(updates)
+                            .then(() => console.log('Dados iniciais de jogadores salvos no Firebase'))
+                            .catch(error => console.error('Erro ao salvar dados iniciais de jogadores:', error));
+                    } else {
+                        console.log('Dados de jogadores já existem no Firebase');
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao verificar dados existentes de jogadores:', error);
+                });
+            
+            // Listen for players changes
+            playersRef.on('value', (snapshot) => {
+                playersDB = [];
+                if (snapshot.exists()) {
+                    snapshot.forEach(childSnapshot => {
+                        playersDB.push(childSnapshot.val());
+                    });
+                }
+                console.log('Dados atualizados do Firebase:', playersDB.length, 'jogadores');
+                
+                // Refresh UI if on search screen with active search
+                if (!searchContainer.classList.contains('hidden') && searchTerm.value.trim()) {
+                    searchPlayers();
+                }
+            });
+            
+            // Initialize cards DB
+            const cardsRef = firebase.database().ref('cards');
+            
+            // Listen for cards changes
+            cardsRef.on('value', (snapshot) => {
+                cardsDB = [];
+                if (snapshot.exists()) {
+                    snapshot.forEach(childSnapshot => {
+                        cardsDB.push(childSnapshot.val());
+                    });
+                }
+                console.log('Dados atualizados do Firebase:', cardsDB.length, 'cartões');
+                
+                // Refresh UI if on cards screen
+                if (!cardsContainer.classList.contains('hidden')) {
+                    loadRecentCards();
+                }
+            });
+        }
+        
+        // Função para inicializar autenticação do Firebase
+        function initializeFirebaseAuth() {
+            // Verificar se usuários já existem no Firebase
+            firebase.database().ref('users').once('value')
+                .then((snapshot) => {
+                    if (!snapshot.exists()) {
+                        console.log('Inicializando usuários no Firebase');
+                        
+                        // Adicionar usuários predefinidos
+                        const updates = {};
+                        users.forEach(user => {
+                            updates[user.username] = {
+                                username: user.username,
+                                password: user.password, // Em produção, NUNCA armazene senhas em texto plano
+                                isAdmin: user.isAdmin,
+                                isReferee: user.isReferee
+                            };
+                        });
+                        
+                        firebase.database().ref('users').update(updates)
+                            .then(() => console.log('Usuários iniciais salvos no Firebase'))
+                            .catch(error => console.error('Erro ao salvar usuários iniciais:', error));
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao verificar usuários existentes:', error);
+                });
+        }
+        
+        // Monitor connection state
+        function monitorConnection() {
+            const connectedRef = firebase.database().ref('.info/connected');
+            connectedRef.on('value', (snap) => {
+                if (snap.val() === true) {
+                    syncStatus.classList.remove('bg-yellow-400', 'bg-red-500');
+                    syncStatus.classList.add('bg-green-500');
+                    syncText.textContent = 'Conectado';
+                    syncIndicator.classList.remove('opacity-0');
+                    setTimeout(() => {
+                        syncIndicator.classList.add('opacity-0');
+                    }, 3000);
+                } else {
+                    syncStatus.classList.remove('bg-green-500', 'bg-yellow-400');
+                    syncStatus.classList.add('bg-red-500');
+                    syncText.textContent = 'Desconectado';
+                    syncIndicator.classList.remove('opacity-0');
+                }
+            });
+            
+            // Show syncing status
+            const dbRef = firebase.database().ref('players');
+            dbRef.on('child_changed', () => {
+                syncStatus.classList.remove('bg-green-500', 'bg-red-500');
+                syncStatus.classList.add('bg-yellow-400');
+                syncText.textContent = 'Sincronizando...';
+                syncIndicator.classList.remove('opacity-0');
+                
+                setTimeout(() => {
+                    syncStatus.classList.remove('bg-yellow-400');
+                    syncStatus.classList.add('bg-green-500');
+                    syncText.textContent = 'Sincronizado';
+                    
+                    setTimeout(() => {
+                        syncIndicator.classList.add('opacity-0');
+                    }, 2000);
+                }, 1000);
+            });
+        }
+        
+        // Check if user is already logged in
+        function checkLoginStatus() {
+            const savedUser = localStorage.getItem('currentUser');
+            if (savedUser) {
+                try {
+                    const user = JSON.parse(savedUser);
+                    loginUser(user.username, user.isAdmin, user.isReferee);
+                } catch (e) {
+                    console.error('Erro ao analisar usuário salvo:', e);
+                    logoutUser();
+                }
+            }
+        }
+        
+        // Atualizar função de verificação de login
+        function attemptLogin(username, password) {
+            return new Promise((resolve, reject) => {
+                firebase.database().ref('users/' + username).once('value')
+                    .then((snapshot) => {
+                        if (snapshot.exists()) {
+                            const userData = snapshot.val();
+                            if (userData.password === password) {
+                                resolve({
+                                    username: userData.username,
+                                    isAdmin: userData.isAdmin,
+                                    isReferee: userData.isReferee
+                                });
+                            } else {
+                                reject(new Error('Senha incorreta'));
+                            }
+                        } else {
+                            reject(new Error('Usuário não encontrado'));
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Erro ao verificar login:', error);
+                        reject(error);
+                    });
+            });
+        }
+        
+        // Login user
+        function loginUser(username, admin, referee) {
+            currentUser = username;
+            isAdmin = admin;
+            isReferee = referee;
+            
+            // Update UI
+            currentUserSpan.textContent = username;
+            if (admin) {
+                adminBadge.classList.remove('hidden');
+                refereeBadge.classList.add('hidden');
+            } else if (referee) {
+                adminBadge.classList.add('hidden');
+                refereeBadge.classList.remove('hidden');
+            } else {
+                adminBadge.classList.add('hidden');
+                refereeBadge.classList.add('hidden');
+            }
+            
+            // Hide login screen
+            loginScreen.classList.add('hidden');
+            
+            // Update UI based on permissions
+            updateUIBasedOnPermissions();
+            
+            // Save login state
+            localStorage.setItem('currentUser', JSON.stringify({ 
+                username, 
+                isAdmin: admin,
+                isReferee: referee 
+            }));
+        }
+        
+        // Logout user
+        function logoutUser() {
+            currentUser = null;
+            isAdmin = false;
+            isReferee = false;
+            
+            // Show login screen
+            loginScreen.classList.remove('hidden');
+            
+            // Clear login state
+            localStorage.removeItem('currentUser');
+        }
+        
+        // Update UI based on user permissions
+        function updateUIBasedOnPermissions() {
+            // Para administradores
+            if (isAdmin) {
+                tabRegister.classList.remove('hidden');
+                tabCards.classList.add('hidden');
+            } 
+            // Para juízes
+            else if (isReferee) {
+                tabRegister.classList.add('hidden');
+                tabCards.classList.remove('hidden');
+                
+                // Automaticamente muda para a aba de cartões
+                switchTab('cards');
+            } 
+            // Para mesários
+            else {
+                tabRegister.classList.add('hidden');
+                tabCards.classList.add('hidden');
+                
+                // Remove edit and toggle buttons from search results
+                document.querySelectorAll('.edit-player, .toggle-status').forEach(button => {
+                    button.classList.add('hidden');
+                });
+                
+                // Hide edit button in player info display
+                const editDisplayedButton = document.getElementById('edit-displayed-player');
+                if (editDisplayedButton) {
+                    editDisplayedButton.classList.add('hidden');
+                }
+            }
+        }
+                  // Process QR code from selected image
+        function processQRCodeFromImage(file) {
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        // Create canvas for processing the image
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        ctx.drawImage(img, 0, 0, img.width, img.height);
+                        
+                        // Get image data
+                        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        
+                        try {
+                            // Decode QR code from image
+                            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                                inversionAttempts: "dontInvert",
+                            });
+                            
+                            if (code) {
+                                // QR code found!
+                                playerIdInput.value = code.data;
+                                checkPlayer();
+                                showNotification('QR Code lido com sucesso!');
+                            } else {
+                                showNotification('Nenhum QR Code encontrado na imagem.');
+                            }
+                        } catch (error) {
+                            console.error('Erro ao ler QR code:', error);
+                            showNotification('Erro ao processar a imagem. Tente outra ou digite o código manualmente.');
+                        }
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+                  // Show notification
+        function showNotification(message, duration = 3000) {
+            notificationMessage.textContent = message;
+            notification.classList.remove('translate-x-full');
+            
+            // Auto-hide after duration
+            setTimeout(() => {
+                hideNotification();
+            }, duration);
+        }
+        
+        // Hide notification
+        function hideNotification() {
+            notification.classList.add('translate-x-full');
+        }
+        
+        // Handle tab switching
+        function switchTab(tabId) {
+            // Hide all tab content
+            idInputContainer.classList.add('hidden');
+            registerContainer.classList.add('hidden');
+            searchContainer.classList.add('hidden');
+            cardsContainer.classList.add('hidden');
+            
+            // Reset tab button styles
+            tabIdInput.classList.remove('border-primary', 'text-primary');
+            tabIdInput.classList.add('border-transparent', 'text-gray-500');
+            tabRegister.classList.remove('border-primary', 'text-primary');
+            tabRegister.classList.add('border-transparent', 'text-gray-500');
+            tabSearch.classList.remove('border-primary', 'text-primary');
+            tabSearch.classList.add('border-transparent', 'text-gray-500');
+            tabCards.classList.remove('border-primary', 'text-primary');
+            tabCards.classList.add('border-transparent', 'text-gray-500');
+            
+            // Show selected tab and highlight its button
+            if (tabId === 'id-input') {
+                idInputContainer.classList.remove('hidden');
+                tabIdInput.classList.remove('border-transparent', 'text-gray-500');
+                tabIdInput.classList.add('border-primary', 'text-primary');
+            } else if (tabId === 'register') {
+                registerContainer.classList.remove('hidden');
+                tabRegister.classList.remove('border-transparent', 'text-gray-500');
+                tabRegister.classList.add('border-primary', 'text-primary');
+            } else if (tabId === 'search') {
+                searchContainer.classList.remove('hidden');
+                tabSearch.classList.remove('border-transparent', 'text-gray-500');
+                tabSearch.classList.add('border-primary', 'text-primary');
+            } else if (tabId === 'cards') {
+                cardsContainer.classList.remove('hidden');
+                tabCards.classList.remove('border-transparent', 'text-gray-500');
+                tabCards.classList.add('border-primary', 'text-primary');
+                
+                // Reload recent cards when switching to the cards tab
+                loadRecentCards();
+            }
+        }
+                  // Check player by ID
+        function checkPlayer() {
+            const id = playerIdInput.value.trim();
+            
+            if (!id) {
+                showNotification('Por favor, digite o ID do jogador.');
+                return;
+            }
+            
+            // Look up player by ID
+            const player = playersDB.find(p => p.id === id);
+            
+            if (player) {
+                displayPlayerInfo(player);
+            } else {
+                // New player - suggest registration
+                playerInfo.innerHTML = `
+                    <div class="text-center py-4">
+                        <p class="mb-3">Jogador não encontrado. Deseja cadastrar?</p>
+                        <button id="register-new-player" class="bg-primary hover:bg-opacity-90 text-white font-bold py-2 px-4 rounded ${isAdmin ? '' : 'hidden'}">
+                            Cadastrar Novo Jogador
+                        </button>
+                        <p class="${isAdmin ? 'hidden' : ''}">Somente administradores podem cadastrar novos jogadores.</p>
+                    </div>
+                `;
+                
+                const registerNewButton = document.getElementById('register-new-player');
+                if (registerNewButton) {
+                    registerNewButton.addEventListener('click', () => {
+                        document.getElementById('playerId').value = id;
+                        switchTab('register');
+                    });
+                }
+                
+                playerInfoDisplay.classList.remove('hidden');
+            }
+        }
+        
+        // Display player information after checking
+        function displayPlayerInfo(player) {
+            const statusClass = player.status === 'liberado' 
+                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+            
+            const statusText = player.status === 'liberado' ? 'Liberado para jogar' : 'Não liberado para jogar';
+            
+            playerInfo.innerHTML = `
+                <div class="grid grid-cols-3 gap-1">
+                    <div class="font-medium">Nome:</div>
+                    <div class="col-span-2">${player.name}</div>
+                    
+                    <div class="font-medium">Idade:</div>
+                    <div class="col-span-2">${player.age} anos</div>
+                    
+                    <div class="font-medium">Time:</div>
+                    <div class="col-span-2">${player.team}</div>
+                    
+                    <div class="font-medium">Status:</div>
+                    <div class="col-span-2">
+                        <span class="px-2 py-1 rounded-full text-sm ${statusClass}">${statusText}</span>
+                    </div>
+                </div>
+                <div class="mt-4 flex justify-end">
+                    <button id="edit-displayed-player" class="bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 rounded text-sm ${isAdmin ? '' : 'hidden'}">
+                        Editar Jogador
+                    </button>
+                </div>
+                
+                <!-- Seção de Cartões -->
+                <div class="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+                    <h4 class="font-medium mb-2">Cartões:</h4>
+                    <div id="player-cards" class="space-y-1">
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Carregando cartões...</p>
+                    </div>
+                </div>
+            `;
+            
+            // Add event listener for edit button
+            setTimeout(() => {
+                const editButton = document.getElementById('edit-displayed-player');
+                if (editButton) {
+                    editButton.addEventListener('click', () => {
+                        editPlayer(player.id);
+                    });
+                }
+            }, 0);
+            
+            // Carregar cartões do jogador
+            loadPlayerCards(player.id);
+            
+            playerInfoDisplay.classList.remove('hidden');
+        }
+        
+        // Função para carregar e exibir cartões do jogador
+        function loadPlayerCards(playerId) {
+            const playerCardsDiv = document.getElementById('player-cards');
+            
+            firebase.database().ref('cards').orderByChild('playerId').equalTo(playerId).once('value')
+                .then((snapshot) => {
+                    if (snapshot.exists()) {
+                        let html = '';
+                        let yellowCount = 0;
+                        let redCount = 0;
+                        const cards = [];
+                        
+                        snapshot.forEach(childSnapshot => {
+                            const card = childSnapshot.val();
+                            cards.push(card);
+                            
+                            if (card.type === 'amarelo') {
+                                yellowCount++;
+                            } else if (card.type === 'vermelho') {
+                                redCount++;
+                            }
+                        });
+                        
+                        // Ordenar cartões por data (mais recentes primeiro)
+                        cards.sort((a, b) => b.timestamp - a.timestamp);
+                        
+                        // Adicionar resumo
+                        html = `
+                            <div class="flex space-x-3 mb-3">
+                                <div class="bg-yellow-100 dark:bg-yellow-900 px-2 py-1 rounded text-sm text-yellow-800 dark:text-yellow-200">
+                                    <span class="font-medium">${yellowCount}</span> amarelos
+                                </div>
+                                <div class="bg-red-100 dark:bg-red-900 px-2 py-1 rounded text-sm text-red-800 dark:text-red-200">
+                                    <span class="font-medium">${redCount}</span> vermelhos
+                                </div>
+                            </div>
+                        `;
+                        
+                        // Mostrar alerta se tiver 3 ou mais cartões amarelos
+                        if (yellowCount >= 3) {
+                            html += `
+                                <div class="bg-red-100 dark:bg-red-900 p-2 rounded mb-3">
+                                    <p class="text-sm font-medium text-red-800 dark:text-red-200">⚠️ Jogador suspenso por acúmulo de cartões!</p>
+                                </div>
+                            `;
+                        }
+                        
+                        // Listar cartões individuais
+                        cards.forEach(card => {
+                            const date = new Date(card.timestamp);
+                            const formattedDate = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth()+1).toString().padStart(2, '0')}/${date.getFullYear()}`;
+                            
+                            const cardClass = card.type === 'amarelo' ? 
+                                'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200' : 
+                                'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200';
+                            
+                            html += `
+                                <div class="flex items-center justify-between py-1">
+                                    <div class="flex items-center space-x-2">
+                                        <span class="px-2 py-1 rounded-full text-xs ${cardClass}">
+                                            ${card.type.charAt(0).toUpperCase() + card.type.slice(1)}
+                                        </span>
+                                        <span class="text-xs">${card.matchInfo || 'Sem info da partida'}</span>
+                                    </div>
+                                    <span class="text-xs text-gray-500">${formattedDate}</span>
+                                </div>
+                            `;
+                            
+                            // Adicionar motivo se existir
+                            if (card.reason) {
+                                html += `
+                                    <div class="ml-6 text-xs text-gray-600 dark:text-gray-400 mb-1">
+                                        Motivo: ${card.reason}
+                                    </div>
+                                `;
+                            }
+                        });
+                        
+                        playerCardsDiv.innerHTML = html;
+                    } else {
+                        playerCardsDiv.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Nenhum cartão registrado.</p>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar cartões:', error);
+                    playerCardsDiv.innerHTML = '<p class="text-sm text-red-500">Erro ao carregar cartões.</p>';
+                });
+        }
+                  // Register a new player with Firebase
+        function registerPlayer(event) {
+            event.preventDefault();
+            
+            const id = document.getElementById('playerId').value.trim();
+            const name = document.getElementById('playerName').value.trim();
+            const age = parseInt(document.getElementById('playerAge').value);
+            const team = document.getElementById('playerTeam').value.trim();
+            const status = document.getElementById('playerStatus').value;
+            
+            if (!id) {
+                showNotification('Por favor, digite um ID para o jogador.');
+                return;
+            }
+            
+            // Create player object
+            const player = { id, name, age, team, status };
+            
+            // Check if player already exists
+            const existingPlayerIndex = playersDB.findIndex(p => p.id === id);
+            const existingPlayer = existingPlayerIndex !== -1;
+            
+            // Save to Firebase
+            firebase.database().ref('players/' + id).set(player)
+                .then(() => {
+                    showNotification(`Jogador "${name}" ${existingPlayer ? 'atualizado' : 'cadastrado'} com sucesso!`);
+                    // Reset form
+                    registerForm.reset();
+                })
+                .catch(error => {
+                    console.error('Erro ao salvar jogador:', error);
+                    showNotification('Erro ao salvar jogador. Tente novamente.');
+                });
+        }
+        
+        // Search players by name
+        function searchPlayers() {
+            const term = searchTerm.value.toLowerCase().trim();
+            
+            if (!term) {
+                playersListDiv.innerHTML = '<p class="text-gray-500 italic">Digite um nome para buscar.</p>';
+                resultsHeading.classList.add('hidden');
+                return;
+            }
+            
+            const results = playersDB.filter(player => 
+                player.name.toLowerCase().includes(term)
+            );
+            
+            if (results.length === 0) {
+                playersListDiv.innerHTML = '<p class="text-gray-500 italic">Nenhum jogador encontrado.</p>';
+            } else {
+                let html = '';
+                
+                results.forEach(player => {
+                    const statusClass = player.status === 'liberado' 
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                        : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+                    
+                    const statusText = player.status === 'liberado' ? 'Liberado para jogar' : 'Não liberado para jogar';
+                    
+                    html += `
+                        <div class="bg-white dark:bg-gray-700 p-3 rounded shadow">
+                            <div class="grid grid-cols-3 gap-1">
+                                <div class="font-medium">Nome:</div>
+                                <div class="col-span-2">${player.name}</div>
+                                
+                                <div class="font-medium">Idade:</div>
+                                <div class="col-span-2">${player.age} anos</div>
+                                
+                                <div class="font-medium">Time:</div>
+                                <div class="col-span-2">${player.team}</div>
+                                
+                                <div class="font-medium">Status:</div>
+                                <div class="col-span-2">
+                                    <span class="px-2 py-1 rounded-full text-sm ${statusClass}">${statusText}</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Verificar e exibir alertas de cartões -->
+                            <div id="card-status-${player.id}" class="mt-2">
+                                <div class="text-sm text-gray-500">Verificando cartões...</div>
+                            </div>
+                            
+                            <div class="mt-3 flex justify-end space-x-2">
+                                <button class="edit-player bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded text-sm ${isAdmin ? '' : 'hidden'}" 
+                                    data-id="${player.id}">
+                                    Editar
+                                </button>
+                                <button class="toggle-status 
+                                    ${player.status === 'liberado' ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'} 
+                                    text-white py-1 px-2 rounded text-sm ${isAdmin ? '' : 'hidden'}" 
+                                    data-id="${player.id}">
+                                    ${player.status === 'liberado' ? 'Bloquear' : 'Liberar'}
+                                </button>
+                                <button class="view-details bg-gray-500 hover:bg-gray-600 text-white py-1 px-2 rounded text-sm"
+                                    data-id="${player.id}">
+                                    Detalhes
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                playersListDiv.innerHTML = html;
+                
+                // Verificar cartões para cada jogador nos resultados
+                results.forEach(player => {
+                    checkPlayerCardStatus(player.id);
+                });
+                
+                // Add event listeners to buttons
+                document.querySelectorAll('.edit-player').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const id = this.getAttribute('data-id');
+                        editPlayer(id);
+                    });
+                });
+                
+                document.querySelectorAll('.toggle-status').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const id = this.getAttribute('data-id');
+                        togglePlayerStatus(id);
+                    });
+                });
+                
+                document.querySelectorAll('.view-details').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const id = this.getAttribute('data-id');
+                        playerIdInput.value = id;
+                        switchTab('id-input');
+                        checkPlayer();
+                    });
+                });
+            }
+            
+            resultsHeading.classList.remove('hidden');
+        }
+        
+        // Verificar status de cartões para um jogador na lista de resultados
+        function checkPlayerCardStatus(playerId) {
+            const cardStatusDiv = document.getElementById(`card-status-${playerId}`);
+            
+            firebase.database().ref('cards').orderByChild('playerId').equalTo(playerId).once('value')
+                .then((snapshot) => {
+                    if (snapshot.exists()) {
+                        let yellowCount = 0;
+                        let redCount = 0;
+                        
+                        snapshot.forEach(childSnapshot => {
+                            const card = childSnapshot.val();
+                            if (card.type === 'amarelo') {
+                                yellowCount++;
+                            } else if (card.type === 'vermelho') {
+                                redCount++;
+                            }
+                        });
+                        
+                        if (yellowCount >= 3) {
+                            cardStatusDiv.innerHTML = `
+                                <div class="bg-red-100 dark:bg-red-900 p-2 rounded mt-2">
+                                    <p class="text-xs font-medium text-red-800 dark:text-red-200">⚠️ Suspenso por acúmulo de cartões!</p>
+                                </div>
+                            `;
+                        } else if (yellowCount > 0 || redCount > 0) {
+                            cardStatusDiv.innerHTML = `
+                                <div class="flex space-x-2 mt-1">
+                                    ${yellowCount > 0 ? 
+                                      `<span class="bg-yellow-100 dark:bg-yellow-900 px-2 py-0.5 rounded text-xs text-yellow-800 dark:text-yellow-200">
+                                        ${yellowCount} amarelo${yellowCount > 1 ? 's' : ''}
+                                       </span>` : ''}
+                                    ${redCount > 0 ? 
+                                      `<span class="bg-red-100 dark:bg-red-900 px-2 py-0.5 rounded text-xs text-red-800 dark:text-red-200">
+                                        ${redCount} vermelho${redCount > 1 ? 's' : ''}
+                                       </span>` : ''}
+                                </div>
+                            `;
+                        } else {
+                            cardStatusDiv.innerHTML = '';
+                        }
+                    } else {
+                        cardStatusDiv.innerHTML = '';
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao verificar cartões:', error);
+                    cardStatusDiv.innerHTML = '';
+                });
+        }
+        
+        // Edit player
+        function editPlayer(id) {
+            const player = playersDB.find(p => p.id === id);
+            
+            if (player) {
+                // Fill form with player data
+                document.getElementById('playerId').value = player.id;
+                document.getElementById('playerName').value = player.name;
+                document.getElementById('playerAge').value = player.age;
+                document.getElementById('playerTeam').value = player.team;
+                document.getElementById('playerStatus').value = player.status;
+                
+                // Switch to register tab
+                switchTab('register');
+            }
+        }
+        
+        // Toggle player status with Firebase
+        function togglePlayerStatus(id) {
+            const playerIndex = playersDB.findIndex(p => p.id === id);
+            
+            if (playerIndex !== -1) {
+                // Get current player
+                const player = playersDB[playerIndex];
+                
+                // Toggle status
+                const newStatus = player.status === 'liberado' ? 'bloqueado' : 'liberado';
+                
+                // Update in Firebase
+                firebase.database().ref('players/' + id + '/status').set(newStatus)
+                    .then(() => {
+                        // Show notification
+                        const statusText = newStatus === 'liberado' ? 'liberado' : 'bloqueado';
+                        showNotification(`Status do jogador alterado para: ${statusText}`);
+                        
+                        // Local UI will be updated by the Firebase listener
+                    })
+                    .catch(error => {
+                        console.error('Erro ao atualizar status:', error);
+                        showNotification('Erro ao atualizar status. Tente novamente.');
+                    });
+            }
+        }
+                  // Inicializar funcionalidade de cartões
+        function initializeCardsFunctionality() {
+            // Pesquisa de jogadores enquanto digita
+            playerSearch.addEventListener('input', function() {
+                const searchTerm = this.value.trim().toLowerCase();
+                if (searchTerm.length < 2) {
+                    playerSearchResults.classList.add('hidden');
+                    return;
+                }
+                
+                const results = playersDB.filter(player => 
+                    player.name.toLowerCase().includes(searchTerm)
+                );
+                
+                if (results.length === 0) {
+                    playerSearchResults.innerHTML = '<p class="p-2 text-gray-500">Nenhum jogador encontrado</p>';
+                } else {
+                    let html = '';
+                    results.forEach(player => {
+                        html += `<div class="player-result p-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer" data-id="${player.id}" data-team="${player.team}">${player.name} (${player.team})</div>`;
+                    });
+                    playerSearchResults.innerHTML = html;
+                    
+                    // Adicionar eventos aos resultados
+                    document.querySelectorAll('.player-result').forEach(div => {
+                        div.addEventListener('click', function() {
+                            const id = this.getAttribute('data-id');
+                            const team = this.getAttribute('data-team');
+                            const player = playersDB.find(p => p.id === id);
+                            
+                            playerSearch.value = player.name;
+                            selectedPlayerId.value = id;
+                            teamNameInput.value = team;
+                            playerSearchResults.classList.add('hidden');
+                            
+                            // Verificar cartões amarelos do jogador
+                            checkYellowCards(id);
+                        });
+                    });
+                }
+                
+                playerSearchResults.classList.remove('hidden');
+            });
+            
+            // Esconder resultados quando clicar fora
+            document.addEventListener('click', function(e) {
+                if (!playerSearch.contains(e.target) && !playerSearchResults.contains(e.target)) {
+                    playerSearchResults.classList.add('hidden');
+                }
+            });
+            
+            // Verificar cartões amarelos do jogador
+            function checkYellowCards(playerId) {
+                firebase.database().ref('cards').orderByChild('playerId').equalTo(playerId).once('value')
+                    .then((snapshot) => {
+                        if (snapshot.exists()) {
+                            let yellowCards = 0;
+                            snapshot.forEach(childSnapshot => {
+                                const card = childSnapshot.val();
+                                if (card.type === 'amarelo') {
+                                    yellowCards++;
+                                }
+                            });
+                            
+                            if (yellowCards > 0 && yellowCards < 3) {
+                                yellowCardCount.textContent = yellowCards;
+                                cardWarning.classList.remove('hidden');
+                                cardAlert.classList.add('hidden');
+                            } else if (yellowCards >= 3) {
+                                cardWarning.classList.add('hidden');
+                                cardAlert.classList.remove('hidden');
+                            } else {
+                                cardWarning.classList.add('hidden');
+                                cardAlert.classList.add('hidden');
+                            }
+                        } else {
+                            cardWarning.classList.add('hidden');
+                            cardAlert.classList.add('hidden');
+                        }
+                    });
+            }
+            
+            // Registrar um novo cartão
+            cardForm.addEventListener('submit', function(event) {
+                event.preventDefault();
+                
+                const playerId = selectedPlayerId.value;
+                const teamName = teamNameInput.value;
+                const cardType = cardTypeSelect.value;
+                const matchInfo = matchInfoInput.value;
+                const reason = cardReasonInput.value;
+                
+                if (!playerId) {
+                    showNotification('Por favor, selecione um jogador.');
+                    return;
+                }
+                
+                const player = playersDB.find(p => p.id === playerId);
+                if (!player) {
+                    showNotification('Jogador não encontrado.');
+                    return;
+                }
+                
+                // Criar objeto do cartão
+                const cardId = Date.now().toString();
+                const card = {
+                    id: cardId,
+                    playerId: playerId,
+                    playerName: player.name,
+                    teamName: teamName,
+                    type: cardType,
+                    matchInfo: matchInfo,
+                    reason: reason,
+                    registeredBy: currentUser,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                };
+                
+                // Salvar no Firebase
+                firebase.database().ref('cards/' + cardId).set(card)
+                    .then(() => {
+                        showNotification(`Cartão ${cardType} registrado para ${player.name}`);
+                        // Reset form
+                        cardForm.reset();
+                        selectedPlayerId.value = '';
+                        cardWarning.classList.add('hidden');
+                        cardAlert.classList.add('hidden');
+                        
+                        // Atualizar cartões recentes
+                        loadRecentCards();
+                    })
+                    .catch(error => {
+                        console.error('Erro ao registrar cartão:', error);
+                        showNotification('Erro ao registrar cartão. Tente novamente.');
+                    });
+            });
+        }
+        
+        // Carregar cartões recentes
+        function loadRecentCards() {
+            firebase.database().ref('cards').orderByChild('timestamp').limitToLast(10).once('value')
+                .then((snapshot) => {
+                    if (snapshot.exists()) {
+                        let html = '';
+                        const cards = [];
+                        
+                        snapshot.forEach(childSnapshot => {
+                            cards.push(childSnapshot.val());
+                        });
+                        
+                        // Reverter para mostrar os mais recentes primeiro
+                        cards.reverse().forEach(card => {
+                            const date = new Date(card.timestamp);
+                            const formattedDate = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth()+1).toString().padStart(2, '0')}/${date.getFullYear()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+                            
+                            const cardClass = card.type === 'amarelo' ? 
+                                'bg-yellow-100 dark:bg-yellow-900 border-yellow-300 dark:border-yellow-800' : 
+                                'bg-red-100 dark:bg-red-900 border-red-300 dark:border-red-800';
+                            
+                            const cardTextClass = card.type === 'amarelo' ? 
+                                'text-yellow-800 dark:text-yellow-200' : 
+                                'text-red-800 dark:text-red-200';
+                            
+                            html += `
+                                <div class="p-3 rounded-lg border ${cardClass}">
+                                    <div class="flex justify-between items-start">
+                                        <div>
+                                            <p class="font-medium ${cardTextClass}">${card.playerName}</p>
+                                            <p class="text-sm text-gray-600 dark:text-gray-400">${card.teamName}</p>
+                                            ${card.matchInfo ? `<p class="text-sm text-gray-500 dark:text-gray-400">Partida: ${card.matchInfo}</p>` : ''}
+                                        </div>
+                                        <div class="text-sm text-gray-500 dark:text-gray-400">${formattedDate}</div>
+                                    </div>
+                                    <div class="mt-1">
+                                        <span class="inline-block px-2 py-1 rounded-full text-xs font-medium ${cardTextClass} bg-opacity-50">
+                                            Cartão ${card.type}
+                                        </span>
+                                        ${card.reason ? `<span class="text-xs text-gray-600 dark:text-gray-400 ml-2">Motivo: ${card.reason}</span>` : ''}
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        
+                        recentCardsDiv.innerHTML = html;
+                    } else {
+                        recentCardsDiv.innerHTML = '<p class="text-gray-500 italic">Nenhum cartão registrado recentemente.</p>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar cartões recentes:', error);
+                    recentCardsDiv.innerHTML = '<p class="text-red-500">Erro ao carregar cartões. Tente novamente mais tarde.</p>';
+                });
+        }
+                  // Initialize app
+        function init() {
+            initializeDB();
+            initializeFirebaseAuth();
+            monitorConnection();
+            
+            // Check login status on startup
+            checkLoginStatus();
+            
+            // Login form submission
+            loginForm.addEventListener('submit', function(event) {
+                event.preventDefault();
+                
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+                
+                // Check credentials using Firebase
+                attemptLogin(username, password)
+                    .then(user => {
+                        loginUser(user.username, user.isAdmin, user.isReferee);
+                        loginError.classList.add('hidden');
+                    })
+                    .catch(error => {
+                        console.error('Erro de login:', error);
+                        loginError.classList.remove('hidden');
+                    });
+            });
+            
+            // Logout button
+            logoutButton.addEventListener('click', logoutUser);
+            
+            // Tab switching
+            tabIdInput.addEventListener('click', () => switchTab('id-input'));
+            tabRegister.addEventListener('click', () => switchTab('register'));
+            tabSearch.addEventListener('click', () => switchTab('search'));
+            tabCards.addEventListener('click', () => switchTab('cards'));
+            
+            // Process selected image for QR code
+            qrImageInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                processQRCodeFromImage(file);
+            });
+            
+            // Check player
+            checkPlayerButton.addEventListener('click', checkPlayer);
+            playerIdInput.addEventListener('keyup', (e) => {
+                if (e.key === 'Enter') {
+                    checkPlayer();
+                }
+            });
+            
+            // Registration
+            registerForm.addEventListener('submit', registerPlayer);
+            
+            // Search
+            searchButton.addEventListener('click', searchPlayers);
+            searchTerm.addEventListener('keyup', (e) => {
+                if (e.key === 'Enter') {
+                    searchPlayers();
+                }
+            });
+            
+            // Close notification
+            closeNotification.addEventListener('click', hideNotification);
+            
+            // Inicializar funcionalidade de cartões
+            initializeCardsFunctionality();
+        }
+        
+        // Initialize when the document is fully loaded
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+
+    <!-- Registrar Service Worker para PWA -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('sw.js').then(registration => {
+            console.log('Service Worker registrado com sucesso:', registration.scope);
+          }).catch(error => {
+            console.log('Falha ao registrar o Service Worker:', error);
+          });
+        });
+      }
+    </script>
+</body>
+</html>
